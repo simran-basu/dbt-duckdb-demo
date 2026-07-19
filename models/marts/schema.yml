@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: fct_customer_targets
+    description: "Final tiered customer target list, consolidating alert signals into actionable priority tiers — mirrors a monthly opportunity index output."
+    columns:
+      - name: customer_id
+        description: "Primary key for customer"
+        tests:
+          - unique
+          - not_null
+      - name: target_tier
+        description: "Final priority tier assigned to the customer"
+        tests:
+          - accepted_values:
+              values: ['Tier 1 - High Priority', 'Tier 2 - Medium Priority', 'Tier 3 - Low Priority', 'Tier 4 - No Action']
+
+  - name: fct_orders_incremental
+    description: "Incremental fact table capturing order details, including status and last updated timestamp."
+    columns:
+      - name: order_id
+        description: "Primary key for the order"
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: "Foreign key linking to the customer"
+        tests:
+          - not_null
+      - name: order_date
+        description: "Date when the order was placed"
+        tests:
+          - not_null
+      - name: order_amount
+        description: "Total amount for the order"
+        tests:
+          - not_null
+      - name: order_status
+        description: "Current status of the order (e.g., completed, pending, cancelled)"
+        tests:
+          - accepted_values:
+              values: ['completed', 'pending', 'cancelled']
+      - name: last_updated
+        description: "Timestamp of the last update to the order record"

@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: int_customer_alerts
+    description: "Consolidates order signals per customer into a single alert record, similar to rule-based alert consolidation logic."
+    columns:
+      - name: customer_id
+        description: "Primary key for customer"
+        tests:
+          - unique
+          - not_null
+      - name: alert_reason
+        description: "Consolidated alert category based on business rules"
+        tests:
+          - accepted_values:
+              values: ['high_value_customer', 'pending_order_followup', 'cancellation_review', 'no_alert']
+      - name: alert_priority
+        description: "Priority ranking of the alert (1 = highest)"
+        tests:
+          - not_null
