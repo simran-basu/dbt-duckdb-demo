@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: spark_output
+    tables:
+      - name: int_customer_alerts_parquet
+        meta:
+          external_location: "spark_pipeline/output/int_customer_alerts_parquet/*.parquet"
