@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: databricks_delta
+    database: workspace
+    schema: default
+    tables:
+      - name: stg_customers
+      - name: stg_orders
