@@ -4,3 +4,4 @@ logs/
 *.duckdb
 *.duckdb.wal
 dbt-env/
+profiles.yml

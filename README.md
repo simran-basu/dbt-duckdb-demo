@@ -1,108 +1,113 @@
-# Multi-Engine Data Pipeline: Customer Alert Consolidation & Tiered Targeting
+# End-to-End Data Pipeline: Customer Alert Consolidation & Tiered Targeting
 
-An end-to-end data pipeline demonstrating rule-based alert consolidation and tiered customer targeting — built with dummy data to practice patterns used in production pharma commercial analytics pipelines (business-rules-based alerting, tiered target lists, SCD Type 2 change tracking).
+An orchestrated, multi-engine data pipeline demonstrating rule-based alert consolidation and tiered customer targeting — built with dummy data to practice patterns used in production pharma commercial analytics pipelines (business-rules-based alerting, tiered target lists, SCD Type 2 change tracking), and now fully automated end-to-end with Airflow.
 
-The project deliberately spans **three storage/compute layers** to demonstrate the same business logic implemented across the stack most modern data engineering job descriptions ask for: local SQL-based transformation (dbt + DuckDB), distributed transformation (PySpark), and a managed lakehouse (Databricks + Delta Lake).
+This is the capstone of a four-week hands-on build spanning the core modern data engineering stack: **dbt (transformation/testing) → Spark (distributed processing) → Databricks/Delta Lake (managed lakehouse) → Airflow (orchestration)**.
 
 ## Architecture
+┌─────────────────────────┐
+                      │   Airflow (Docker)       │
+                      │   DAG: full_customer_    │
+                      │   alerts_pipeline        │
+                      │   Schedule: @daily       │
+                      └───────────┬──────────────┘
+                                  │
+             ┌────────────────────┼────────────────────┐
+             ▼                    ▼                     ▼
+  validate_raw_ingestion   run_spark_transform    run_dbt_run → run_dbt_test
+  (checks seeds exist)     (PySpark, containerized)  (dbt-duckdb, containerized)
+                                  │                     ▲
+                                  ▼                     │
+                          Parquet output ────────────────┘
+                          (external dbt source)
 
-Raw CSVs (seeds/)
-│
-├─────────────────────────┬──────────────────────────────┐
-│ │ │
-▼ ▼ ▼
-dbt seed/staging/ PySpark (local) Databricks notebooks
-intermediate/marts read + transform (Serverless compute)
-(DuckDB, SQL-based) write to Parquet │
-│ │ ▼
-│ ▼ Delta Lake tables
-│ dbt source (stg_customers, stg_orders,
-│ (external_location) int_customer_alerts_delta,
-│ │ customers_scd2)
-│ ▼ │
-│ int_customer_alerts_from_spark ▼
-│ │ dbt-databricks adapter
-│ ▼ (source + models)
-│ fct_customer_targets_from_spark │
-│ ▼
-│ int_customer_alerts_databricks
-│ │
-│ ▼
-│ fct_customer_targets_databricks
-▼
-fct_customer_targets
-(original seed-based chain, kept for comparison)
-Three parallel chains exist in this repo on purpose, each building on the last:
-- **Seed-based (DuckDB)**: `seeds → stg_* → int_customer_alerts → fct_customer_targets` — pure dbt/SQL, no external engine.
-- **Spark + Parquet (DuckDB)**: PySpark reads the same raw CSVs, replicates staging/intermediate logic, writes Parquet — dbt reads that Parquet directly as an external source and finishes the modeling layer.
-- **Databricks + Delta**: Databricks notebooks (Serverless compute) read the same raw CSVs from a Unity Catalog Volume, write Delta tables with full ACID transactions, schema enforcement, versioning, and `MERGE INTO` upsert/SCD2 logic — dbt then connects directly to Databricks via the `dbt-databricks` adapter and builds on top of those live Delta tables.
+  Separately, on Databricks (manual notebook trigger, documented as
+  next-step for full DatabricksSubmitRunOperator integration):
 
-All three produce the same underlying business logic result, used throughout to validate that each engine agrees before wiring them together.
+  Raw CSVs (Unity Catalog Volume)
+         │
+         ▼
+  Databricks notebooks (Serverless compute)
+         │
+         ▼
+  Delta Lake tables (ACID, versioned, MERGE INTO upserts, SCD Type 2)
+         │
+         ▼
+  dbt-databricks adapter → int_customer_alerts_databricks → fct_customer_targets_databricks
+  ## What this demonstrates, by layer
 
-## What this demonstrates
-
-**dbt / DuckDB (local)**
-- Models, sources, refs, materializations (view/table/incremental)
+**dbt / DuckDB**
 - Layered modeling: seeds → staging (`stg_*`) → intermediate (`int_*`) → marts (`fct_*`)
-- Rule-based alert consolidation and tiered target list output
-- Incremental models using `is_incremental()` and a `last_updated` watermark
-- Generic + custom singular tests, full docs/lineage via `dbt docs generate`
+- Incremental models (`is_incremental()`, `delete+insert`), generic + custom tests, full docs/lineage
 
-**PySpark (local)**
-- Reading the same raw source data dbt uses, reimplementing staging logic as DataFrame transformations
-- Joins with broadcast vs. shuffle plan inspection
-- Incremental/SCD2-style logic via `row_number()`, `lag()`, `lead()` window functions
-- Spark SQL via registered temp views, writing final output to Parquet as a dbt-readable external source
+**PySpark**
+- Reading the same raw source data dbt uses; staging logic reimplemented as DataFrame transformations and Spark SQL
+- Joins with broadcast vs. shuffle plan inspection; incremental/SCD2-style logic via window functions
+- Output written to Parquet, consumed directly by dbt as an external source — no manual export step
 
 **Databricks + Delta Lake**
-- Unity Catalog Volumes for file storage (modern replacement for the legacy DBFS root)
-- Delta table writes (`saveAsTable`), `DESCRIBE HISTORY`, time travel (`VERSION AS OF`)
-- `MERGE INTO` upsert logic, replacing manual delete+insert incremental strategies
-- Full SCD Type 2 implementation (`is_current`, `effective_date`, `end_date`) using `MERGE INTO` — a direct, modern parallel to SCD2 logic built manually in previous roles
-- Schema evolution (`mergeSchema`) and `CHECK`/`NOT NULL` constraints — enforced at write time, contrasted against dbt's post-build `schema.yml` tests
-- `dbt-databricks` adapter connecting the local dbt project directly to live Databricks Delta tables via a second profile target
+- Delta table writes, `DESCRIBE HISTORY`, time travel (`VERSION AS OF`)
+- `MERGE INTO` upsert logic and full SCD Type 2 implementation (`is_current`, `effective_date`, `end_date`)
+- Schema evolution (`mergeSchema`) and write-time `CHECK`/`NOT NULL` constraints, contrasted against dbt's post-build `schema.yml` tests
+- `dbt-databricks` adapter connecting the local dbt project directly to live Delta tables
+
+**Airflow**
+- Full stack run via Docker Compose (webserver, scheduler, dag-processor, Postgres metadata DB, Redis) — the same pattern used in real production Airflow deployments, not a bare pip install
+- Custom Docker image (Java + PySpark + dbt-duckdb baked in via Dockerfile) so DAG tasks can actually execute Spark and dbt inside containers
+- DAG chaining raw-ingestion validation → Spark transform → `dbt run` → `dbt test`, using `>>` dependency operators
+- Retries, `retry_delay`, and `on_failure_callback` alerting stubs (task-level and DAG-level) for failure handling
+- `@daily` schedule, with the full chain verified via manual trigger and Graph View inspection
+
+## Why this stack, and what each piece is actually for
+
+- **dbt** owns transformation logic and testing — the SQL-first layer, portable across warehouses.
+- **Spark** demonstrates the distributed-processing pattern, even at small scale here — the same DataFrame/window-function/join logic that matters once data outgrows a single node.
+- **Databricks + Delta** shows the managed-lakehouse pattern: ACID transactions, schema enforcement, versioning, and native upsert (`MERGE INTO`) — replacing manual SCD2 logic built by hand in previous roles.
+- **Airflow** ties it together as the orchestration layer, adding scheduling, retries, and failure handling — the piece that turns a set of scripts into an actual production pipeline.
+
+**On idempotency** (a running theme across the incremental/MERGE/retry work): every write in this pipeline is designed to be safely rerunnable — dbt's `delete+insert` incremental strategy and Delta's `MERGE INTO` both match on a unique key rather than blindly inserting, so a retry (automatic, via Airflow, or manual) never duplicates data. This matters specifically because Airflow assumes failures are normal and retries by default — a pipeline built on raw inserts would corrupt itself under that assumption; this one doesn't.
 
 ## Project structure
 seeds/ raw dummy data (customers, orders)
-models/staging/ cleaned/renamed source data + source defs (src_spark.yml, src_databricks.yml)
-models/intermediate/ consolidated alert logic (seed-based, Spark-based, Databricks-based versions)
-models/marts/ final tiered outputs (seed-based, Spark-based, Databricks-based versions)
+models/staging/ cleaned/renamed source data + source defs
+models/intermediate/ consolidated alert logic (seed-based, Spark-based, Databricks-based)
+models/marts/ final tiered outputs (seed-based, Spark-based, Databricks-based)
 tests/ custom singular test
-spark_pipeline/ PySpark scripts (read, staging transform, joins, window functions, Spark SQL + Parquet write-out)
+spark_pipeline/ PySpark scripts (staging, joins, window functions, Spark SQL + Parquet write-out)
 spark_pipeline/output/ Parquet output consumed by dbt as an external source
-(Databricks notebooks live in the Databricks workspace itself, not this repo, since Community Edition notebooks aren't exported here.)
+airflow_pipeline/ Docker Compose stack, custom Dockerfile, DAGs
+airflow_pipeline/dags/ full_customer_alerts_pipeline (production DAG), first_dag (learning DAG)
+profiles.yml dbt profile (DuckDB dev/prod targets + Databricks target) — gitignored, contains credentials
 
 ## How to run
 
-**dbt (seed-based chain, DuckDB):**
+**Full orchestrated pipeline (recommended):**
 ```bash
-pip install dbt-duckdb
-dbt seed
-dbt run
-dbt test
-dbt docs generate
-dbt docs serve
+cd airflow_pipeline
+docker compose up airflow-init
+docker compose up -d
+# open http://localhost:8080 (airflow/airflow), trigger full_customer_alerts_pipeline
 ```
 
-**Spark (upstream transformation, feeds DuckDB):**
+**Individual layers, run manually:**
 ```bash
+# dbt (seed-based chain)
+pip install dbt-duckdb && dbt seed && dbt run && dbt test
+
+# Spark (feeds dbt via Parquet)
 pip install pyspark pandas numpy
-cd spark_pipeline
-python sparksql_writeout.py
-cd ..
-dbt run --select int_customer_alerts_from_spark fct_customer_targets_from_spark
+cd spark_pipeline && python sparksql_writeout.py
+cd .. && dbt run --select int_customer_alerts_from_spark fct_customer_targets_from_spark
+
+# Databricks + Delta (run notebooks in workspace first, then:)
+pip install dbt-databricks
+dbt run --target databricks --select int_customer_alerts_databricks fct_customer_targets_databricks
 ```
 
-**Databricks + Delta chain:**
-1. Run the staging/intermediate/SCD2 notebooks in a Databricks workspace (Serverless compute, Unity Catalog Volumes for CSV upload).
-2. Install the adapter locally: `pip install dbt-databricks`
-3. Add a `databricks` target to `~/.dbt/profiles.yml` with your workspace host, HTTP path, and access token.
-4. Run:
-```bash
-dbt run --target databricks --select int_customer_alerts_databricks fct_customer_targets_databricks
-dbt test --target databricks --select stg_customers stg_orders int_customer_alerts_databricks fct_customer_targets_databricks
-```
+## What's next (Weeks 5-6)
+
+This pipeline's outputs — the tiered `fct_customer_targets` tables — become the data foundation for the next phase: standing up a vector store and a basic RAG pipeline on top of this same data, moving from "AI-adjacent data engineering" into applied AI infrastructure.
 
 ## Notes
 
-All data is synthetic/dummy — no real or proprietary data is used in this project.
+All data is synthetic/dummy — no real or proprietary data is used in this project. `profiles.yml` is excluded from version control since it contains a Databricks access token.

@@ -3,6 +3,7 @@ from pyspark.sql.functions import col, lower
 
 spark = SparkSession.builder \
     .appName("Week2SparkSQLWriteOut") \
+    .config("mapreduce.fileoutputcommitter.algorithm.version", "2") \
     .getOrCreate()
 
 # --- Read raw sources ---
