@@ -1,0 +1,6 @@
+Drug Name: Zolvantra (fictional)
+Therapy Area: Oncology - Non-Small Cell Lung Cancer (NSCLC)
+Mechanism of Action: Zolvantra is a tyrosine kinase inhibitor targeting EGFR mutations, blocking downstream signaling pathways that drive tumor cell proliferation.
+Indication: Approved for first-line treatment of adult patients with metastatic NSCLC whose tumors have EGFR exon 19 deletions or exon 21 L858R mutations.
+Common Side Effects: Diarrhea, rash, dry skin, nail changes, decreased appetite.
+Dosing: 80mg orally once daily, with or without food.

@@ -1,0 +1,6 @@
+customer_id,customer_name,region,total_orders,total_spend,pending_orders,cancelled_orders,alert_reason,alert_priority,target_tier,alert_note
+3,Carla,east,1,499.0,0.0,0.0,high_value_customer,1,Tier 1 - High Priority,Carla in east region is a high-value account with $499.00 in total spend across 1 orders. Recommend priority outreach to maintain engagement and explore upsell opportunities.
+1,Alice,east,2,370.5,1.0,0.0,pending_order_followup,2,Tier 2 - Medium Priority,Alice has 1.0 pending order(s) requiring follow-up. Total historical spend is $370.50. Recommend contacting to confirm order status and resolve any blockers before the order lapses.
+4,Dev,south,1,75.25,0.0,1.0,cancellation_review,3,Tier 3 - Low Priority,"Dev has 1.0 cancelled order(s), which may indicate dissatisfaction or a competitive loss. Recommend a retention call to understand the cancellation reason and rebuild the relationship."
+2,Bob,west,1,89.99,0.0,0.0,no_alert,4,Tier 4 - No Action,Bob shows no active alerts. Standard cadence outreach is sufficient; no immediate action required.
+5,Elena,west,0,0.0,0.0,0.0,no_alert,4,Tier 4 - No Action,Elena shows no active alerts. Standard cadence outreach is sufficient; no immediate action required.

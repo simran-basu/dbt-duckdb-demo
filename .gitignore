@@ -5,3 +5,4 @@ logs/
 *.duckdb.wal
 dbt-env/
 profiles.yml
+rag_pipeline/chroma_db/

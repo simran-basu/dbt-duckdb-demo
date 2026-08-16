@@ -1,0 +1,15 @@
+Therapy Area Summary: Cardiology
+
+Cardiology remains one of the largest and most competitive therapy areas in pharmaceutical commercial operations, driven by high disease prevalence and chronic, long-term treatment needs.
+
+Key Disease States:
+- Heart Failure (HFrEF and HFpEF): Growing focus on ARNI and SGLT2 inhibitor combination therapy.
+- Hypertension: Largely genericized market with high patient volume but low per-patient revenue.
+- Atrial Fibrillation: Anticoagulant market increasingly dominated by DOACs (direct oral anticoagulants) over warfarin.
+- Hyperlipidemia: Statins remain first-line; PCSK9 inhibitors used for high-risk or statin-intolerant patients.
+
+Commercial Considerations:
+Field engagement in cardiology typically targets high-prescribing cardiologists and primary care physicians managing chronic populations. Formulary access and step-therapy requirements significantly influence prescribing behavior, making payer coverage data a critical input for targeting models.
+
+Competitive Landscape:
+The heart failure market has seen increased competition following the entry of multiple ARNI and SGLT2 inhibitor combination products, compressing market share for first-generation therapies.

@@ -1,0 +1,14 @@
+Therapy Area Summary: Diabetes
+
+Diabetes is a high-volume, chronic therapy area characterized by long treatment durations, multiple lines of therapy, and significant competition among GLP-1 and SGLT2 inhibitor classes.
+
+Key Disease States:
+- Type 2 Diabetes: Primary market, with treatment progressing from metformin monotherapy to GLP-1 receptor agonists, SGLT2 inhibitors, and eventually insulin therapy.
+- Type 1 Diabetes: Smaller market, insulin-dependent, increasing adoption of continuous glucose monitoring (CGM) integration with insulin pumps.
+- Prediabetes: Emerging focus area for early intervention and lifestyle-adjacent therapies.
+
+Commercial Considerations:
+GLP-1 receptor agonists have seen explosive growth due to additional weight-loss indications, creating supply constraints and driving aggressive competitive targeting strategies. Endocrinologists and primary care physicians are the primary prescriber targets, with increasing attention to patient adherence programs given the chronic nature of treatment.
+
+Competitive Landscape:
+The GLP-1 class has become the most closely watched segment in diabetes, with manufacturers competing heavily on efficacy data, dosing convenience (weekly vs. daily), and patient support program breadth.

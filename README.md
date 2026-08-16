@@ -36,6 +36,41 @@ This is the capstone of a four-week hands-on build spanning the core modern data
   dbt-databricks adapter → int_customer_alerts_databricks → fct_customer_targets_databricks
   ## What this demonstrates, by layer
 
+## Architecture (RAG layer, sitting on top of the pipeline)
+fct_customer_targets (DuckDB)
+                dbt/Spark pipeline output
+                          │
+                          ▼
+             pull_pipeline_data.py
+             (queries dev.duckdb directly,
+              derives alert_note text field
+              from real alert_reason/spend/
+              pending/cancelled columns)
+                          │
+                          ▼
+             embed_alert_notes.py
+             (sentence-transformers →
+              384-dim embeddings)
+                          │
+                          ▼
+             Chroma (persistent, local)
+             collection: customer_alert_notes
+             (embedding + document + metadata:
+              customer_id, region, alert_reason,
+              target_tier)
+                          │
+                          ▼
+             retrieve_alert_notes.py
+             (semantic search + optional
+              metadata filter, e.g. region)
+                          │
+                          ▼
+             generate.py
+             (retrieved chunks → grounded
+              prompt → flan-t5-base → answer
+              + source attribution)
+This is the same integration pattern as the Spark→dbt and Databricks→dbt work earlier: a new layer consuming `fct_customer_targets` the same way a BI tool or another pipeline stage would, rather than operating on a disconnected dataset.
+
 **dbt / DuckDB**
 - Layered modeling: seeds → staging (`stg_*`) → intermediate (`int_*`) → marts (`fct_*`)
 - Incremental models (`is_incremental()`, `delete+insert`), generic + custom tests, full docs/lineage
@@ -58,6 +93,17 @@ This is the capstone of a four-week hands-on build spanning the core modern data
 - Retries, `retry_delay`, and `on_failure_callback` alerting stubs (task-level and DAG-level) for failure handling
 - `@daily` schedule, with the full chain verified via manual trigger and Graph View inspection
 
+**RAG / Vector Retrieval Layer**
+- Local, zero-server vector store (ChromaDB, persistent client) — same local-first philosophy as DuckDB
+- Local embedding model (`sentence-transformers`, `all-MiniLM-L6-v2`) — no API key or hosted service required
+- Proper text chunking (`RecursiveCharacterTextSplitter`, boundary-aware, with overlap) rather than naive fixed-size splitting — verified via before/after retrieval comparison
+- Two corpora embedded and made retrievable:
+  - A dummy pharma knowledge base (drug info sheets, therapy area summaries) for general RAG mechanics
+  - **Alert notes derived directly from `fct_customer_targets`** — the actual output of the dbt/Spark pipeline — proving the RAG layer is a downstream consumer of the same data foundation, not an isolated exercise
+- Distance-threshold filtering to reject low-relevance retrieval results, tested against clearly out-of-domain and topically-adjacent-but-unanswered queries
+- Full generation loop: retrieved chunks → grounded prompt template → local LLM (`flan-t5-base`) → answer with source attribution
+- Metadata filtering (e.g. by region, therapy area) alongside semantic search, using metadata fields sourced from the pipeline's structured columns
+
 ## Why this stack, and what each piece is actually for
 
 - **dbt** owns transformation logic and testing — the SQL-first layer, portable across warehouses.
@@ -78,6 +124,10 @@ spark_pipeline/output/ Parquet output consumed by dbt as an external source
 airflow_pipeline/ Docker Compose stack, custom Dockerfile, DAGs
 airflow_pipeline/dags/ full_customer_alerts_pipeline (production DAG), first_dag (learning DAG)
 profiles.yml dbt profile (DuckDB dev/prod targets + Databricks target) — gitignored, contains credentials
+rag_pipeline/                       Chroma vector store, embedding/retrieval/generation scripts
+rag_pipeline/corpus/                  dummy pharma knowledge base (drug info, therapy summaries)
+rag_pipeline/chroma_db/               persistent Chroma vector store (gitignored — regenerable)
+rag_pipeline/alert_notes.csv          text field derived from fct_customer_targets
 
 ## How to run
 
@@ -103,10 +153,20 @@ cd .. && dbt run --select int_customer_alerts_from_spark fct_customer_targets_fr
 pip install dbt-databricks
 dbt run --target databricks --select int_customer_alerts_databricks fct_customer_targets_databricks
 ```
+**RAG layer (after the dbt pipeline has run at least once):**
+```bash
+cd rag_pipeline
+pip install chromadb sentence-transformers langchain-text-splitters transformers accelerate sentencepiece
 
-## What's next (Weeks 5-6)
+# Pull real pipeline output and derive alert notes
+python pull_pipeline_data.py
 
-This pipeline's outputs — the tiered `fct_customer_targets` tables — become the data foundation for the next phase: standing up a vector store and a basic RAG pipeline on top of this same data, moving from "AI-adjacent data engineering" into applied AI infrastructure.
+# Embed and store
+python embed_alert_notes.py
+
+# Retrieve + generate grounded answers
+python retrieve_alert_notes.py
+python generate.py
 
 ## Notes
 

@@ -1,0 +1,6 @@
+Drug Name: Cardivex (fictional)
+Therapy Area: Cardiology - Heart Failure
+Mechanism of Action: Cardivex is a sacubitril/valsartan-class angiotensin receptor-neprilysin inhibitor (ARNI), combining neprilysin inhibition with angiotensin II receptor blockade to reduce cardiac strain and improve ventricular remodeling.
+Indication: Approved for adult patients with chronic heart failure with reduced ejection fraction (HFrEF, NYHA Class II-IV) to reduce risk of cardiovascular death and hospitalization.
+Common Side Effects: Hypotension, hyperkalemia, dizziness, renal impairment, cough.
+Dosing: Starting dose 49/51mg orally twice daily, titrated up to 97/103mg twice daily as tolerated.
