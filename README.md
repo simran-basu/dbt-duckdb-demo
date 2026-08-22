@@ -69,6 +69,37 @@ fct_customer_targets (DuckDB)
              (retrieved chunks → grounded
               prompt → flan-t5-base → answer
               + source attribution)
+
+## Architecture (Feature store + MLOps layer)
+
+                fct_customer_targets (DuckDB)
+                          │
+                          ▼
+             export_features.py
+             (Parquet export, timestamped)
+                          │
+                          ▼
+             Feast (feature_definitions.py)
+             Entity: customer | FeatureView: customer_stats
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+    Offline store (Parquet)    feast materialize
+    get_historical_features()          │
+    — point-in-time correct,           ▼
+      training-oriented         Online store (SQLite)
+                                 get_online_features()
+                                 — fast single-entity lookup,
+                                   serving-oriented
+
+             Separately, on the same fct_customer_targets data:
+
+    MLflow (log_scoring_run.py)          drift_check.py
+    Rule-based scoring logic,     Compares feature distributions
+    parameterized (threshold)     across time windows (KS test +
+    tracked as runs: params,      mean-shift check) — flags when
+    metrics, artifacts            scoring thresholds may be stale
+
 This is the same integration pattern as the Spark→dbt and Databricks→dbt work earlier: a new layer consuming `fct_customer_targets` the same way a BI tool or another pipeline stage would, rather than operating on a disconnected dataset.
 
 **dbt / DuckDB**
@@ -104,6 +135,16 @@ This is the same integration pattern as the Spark→dbt and Databricks→dbt wor
 - Full generation loop: retrieved chunks → grounded prompt template → local LLM (`flan-t5-base`) → answer with source attribution
 - Metadata filtering (e.g. by region, therapy area) alongside semantic search, using metadata fields sourced from the pipeline's structured columns
 
+**Feature Store + MLOps Layer**
+- Local, zero-server feature store (Feast, SQLite-backed online store — same local-first philosophy as DuckDB and Chroma)
+- `customer_stats` feature view defined against real pipeline output (`fct_customer_targets`, exported to Parquet as Feast's offline source) — `total_orders`, `total_spend`, `pending_orders`, `cancelled_orders`, `alert_priority`, mirroring physician-level opportunity-index-style inputs
+- Both retrieval paths implemented and verified against the same underlying data:
+  - `get_historical_features` — point-in-time-correct, offline, training-oriented (parallels the historical-snapshot correctness needed for reproducible target-list scoring)
+  - `get_online_features` — fast single-entity lookup, online (SQLite), serving-oriented
+- Materialization pipeline (offline → online sync) run and verified end-to-end
+- MLflow experiment tracking applied to the existing rule-based alert-scoring logic — parameters (threshold), metrics (customers flagged), and artifacts (scored output) logged across two runs, demonstrating experiment tracking generalizes beyond ML models to any parameterized, tunable business logic
+- Data drift detection: KS-test-based distribution comparison across simulated time windows, paired with a percent-change-in-mean fallback check after the KS test proved insufficiently sensitive at small sample sizes — a first-hand demonstration of a real limitation in naive drift detection, not just a textbook implementation
+
 ## Why this stack, and what each piece is actually for
 
 - **dbt** owns transformation logic and testing — the SQL-first layer, portable across warehouses.
@@ -128,6 +169,9 @@ rag_pipeline/                       Chroma vector store, embedding/retrieval/gen
 rag_pipeline/corpus/                  dummy pharma knowledge base (drug info, therapy summaries)
 rag_pipeline/chroma_db/               persistent Chroma vector store (gitignored — regenerable)
 rag_pipeline/alert_notes.csv          text field derived from fct_customer_targets
+feature_store/customer_features/    Feast feature repo (entity, feature view, offline/online retrieval)
+mlflow_experiments/                  MLflow-tracked runs of parameterized rule-based scoring
+drift_check/                         Feature distribution drift detection (KS test + mean-shift check)
 
 ## How to run
 
@@ -167,6 +211,27 @@ python embed_alert_notes.py
 # Retrieve + generate grounded answers
 python retrieve_alert_notes.py
 python generate.py
+```
+
+**Feature store + MLOps layer:**
+```bash
+cd feature_store/customer_features
+pip install feast mlflow scipy
+python export_features.py
+cd feature_repo
+feast apply
+feast materialize 2026-01-01T00:00:00 2026-08-20T00:00:00
+python get_historical_features.py
+python get_online_features.py
+
+cd ../../../mlflow_experiments
+python log_scoring_run.py
+mlflow ui  # http://localhost:5000
+
+cd ../drift_check
+python simulate_drift.py
+python drift_check.py
+```
 
 ## Notes
 

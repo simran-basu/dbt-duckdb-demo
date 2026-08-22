@@ -1,0 +1,6 @@
+customer_id,customer_name,total_spend,pending_orders,cancelled_orders,alert_reason
+1,Alice,370.5,0.0,0.0,no_alert
+2,Bob,399.99,1.0,0.0,pending_order_followup
+3,Carla,499.0,0.0,0.0,high_value_customer
+4,Dev,75.25,0.0,1.0,cancellation_review
+5,Elena,,,,no_alert

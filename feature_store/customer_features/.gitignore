@@ -1,0 +1,71 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+.venv
+
+# Pytest
+.cache
+*.cover
+*.log
+.coverage
+nosetests.xml
+coverage.xml
+*.hypothesis/
+*.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Feast — regenerable registry, online store, and Parquet exports
+feature_store/**/data/registry.db
+feature_store/**/data/online_store.db
+feature_store/**/data/*.parquet
+
+# MLflow — regenerable tracking database and run artifacts
+mlflow_experiments/mlflow.db
+mlflow_experiments/mlruns/
+mlflow_experiments/scored_customers_*.csv
+
+# Drift check — regenerable simulated/derived data
+drift_check/windowed_data.csv
+
+# Chroma vector store (from the RAG layer, if not already added)
+rag_pipeline/chroma_db/
+
+# dbt / DuckDB
+dev.duckdb
+*.duckdb.wal
+target/
+dbt_packages/
+logs/
+
+# dbt profile — contains Databricks token, never commit
+profiles.yml

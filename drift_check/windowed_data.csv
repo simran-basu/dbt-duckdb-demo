@@ -1,0 +1,11 @@
+customer_id,customer_name,region,total_orders,total_spend,pending_orders,cancelled_orders,last_order_date,alert_reason,alert_priority,target_tier,window
+3,Carla,east,1,499.0,0.0,0.0,2024-03-20,high_value_customer,1,Tier 1 - High Priority,baseline
+1,Alice,east,2,370.5,1.0,0.0,2024-03-10,pending_order_followup,2,Tier 2 - Medium Priority,baseline
+4,Dev,south,1,75.25,0.0,1.0,2024-04-05,cancellation_review,3,Tier 3 - Low Priority,baseline
+2,Bob,west,1,89.99,0.0,0.0,2024-02-15,no_alert,4,Tier 4 - No Action,baseline
+5,Elena,west,0,0.0,0.0,0.0,,no_alert,4,Tier 4 - No Action,baseline
+3,Carla,east,1,1171.839512594438,2.0,0.0,2024-03-20,high_value_customer,1,Tier 1 - High Priority,current
+1,Alice,east,2,876.8767991924817,1.0,0.0,2024-03-10,pending_order_followup,2,Tier 2 - Medium Priority,current
+4,Dev,south,1,150.16862221644868,0.0,1.0,2024-04-05,cancellation_review,3,Tier 3 - Low Priority,current
+2,Bob,west,1,206.36180375414267,2.0,0.0,2024-02-15,no_alert,4,Tier 4 - No Action,current
+5,Elena,west,0,0.0,0.0,0.0,,no_alert,4,Tier 4 - No Action,current

@@ -1,0 +1,43 @@
+
+H
+*
+customer"customer_idJcustomer_features
+ÿÔ•Ô ÎíÿÔ•Ô Îí
+F
+(
+__dummy"
+__dummy_idJcustomer_features
+ÿÔ•Ô¯‡ÿÔ•Ô¯‡1"$e59c1d9a-189c-47dc-9d62-6496edd0c8c4*ß­–ÔĞ“¿§2½
+‰
+customer_statscustomer_featurescustomer"
+
+region"
+total_orders"
+total_spend"
+pending_orders"
+cancelled_orders"
+alert_priority*
+teamcommercial_analytics2€ÎÚ:«event_timestamp*createdZ data/customer_features.parquetŠ1feast.infra.offline_stores.file_source.FileSource¢customer_features_source’şÔ•Ô‰Ò"ÿÔ•Ôğ©«@b
+customer_id’latest/
+ÿÔ•ÔˆÉ›ß­–ÔÌÄ¦
+€òÖÊ€‡™Ô0RÂ
+¿
+,feast.infra.online_stores.sqlite.SqliteTable"
+jC:\Users\lenovo\Documents\my_dbt_project\feature_store\customer_features\feature_repo\data\online_store.db customer_features_customer_statsb¿event_timestamp*createdZ data/customer_features.parquetŠ1feast.infra.offline_stores.file_source.FileSource¢customer_features_sourceªcustomer_features’şÔ•Ô‰Ò"ÿÔ•Ôğ©«Š‰
+i
+customer_featuresTFeature store for customer alert/targeting data, sourced from the dbt/Spark pipeline
+şÔ•Ô¨ĞŒşÔ•Ô¨ĞŒ’’
+
+customer_statscustomer_features"feature_view*¨
+‰
+customer_statscustomer_featurescustomer"
+
+region"
+total_orders"
+total_spend"
+pending_orders"
+cancelled_orders"
+alert_priority*
+teamcommercial_analytics2€ÎÚ:«event_timestamp*createdZ data/customer_features.parquetŠ1feast.infra.offline_stores.file_source.FileSource¢customer_features_source’şÔ•Ô‰Ò"ÿÔ•Ôğ©«@b
+customer_id’latest
+ÿÔ•ÔˆÉ›ÿÔ•ÔˆÉ›2ÿÔ•ÔøİôB$05da3881-314f-4c40-a25a-08c88f9b4f08
