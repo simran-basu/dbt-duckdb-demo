@@ -58,6 +58,17 @@ with DAG(
         python_callable=validate_raw_ingestion,
     )
 
+    run_dbt_seed_chain = BashOperator(
+        task_id="run_dbt_seed_chain",
+        bash_command=(
+            "cd /opt/airflow/dbt_project && "
+            "export DBT_DUCKDB_PATH=/opt/airflow/dbt_project/dev.duckdb && "
+            "export DBT_PROFILES_DIR=/opt/airflow/dbt_project && "
+            "dbt seed && "
+            "dbt run --select stg_customers stg_orders int_customer_alerts fct_customer_targets"
+        ),
+    )
+
     run_spark_transform = BashOperator(
         task_id="run_spark_transform",
         bash_command="cd /opt/airflow/spark_pipeline && python sparksql_writeout.py",
@@ -67,6 +78,7 @@ with DAG(
         task_id="run_dbt_run",
         bash_command=(
             "cd /opt/airflow/dbt_project && "
+            "export DBT_DUCKDB_PATH=/opt/airflow/dbt_project/dev.duckdb && "
             "export DBT_PROFILES_DIR=/opt/airflow/dbt_project && "
             "dbt run --select int_customer_alerts_from_spark fct_customer_targets_from_spark"
         ),
@@ -76,10 +88,11 @@ with DAG(
         task_id="run_dbt_test",
         bash_command=(
             "cd /opt/airflow/dbt_project && "
+            "export DBT_DUCKDB_PATH=/opt/airflow/dbt_project/dev.duckdb && "
             "export DBT_PROFILES_DIR=/opt/airflow/dbt_project && "
             "dbt test --select int_customer_alerts_from_spark fct_customer_targets_from_spark"
         ),
     )
 
     # Full chain: validate -> transform -> load (dbt run) -> test
-    validate_ingestion >> run_spark_transform >> run_dbt_run >> run_dbt_test
+    validate_ingestion >> run_dbt_seed_chain >> run_spark_transform >> run_dbt_run >> run_dbt_test

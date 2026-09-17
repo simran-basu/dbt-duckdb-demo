@@ -1,25 +1,36 @@
 # End-to-End Data Pipeline: Customer Alert Consolidation & Tiered Targeting
 
-An orchestrated, multi-engine data pipeline demonstrating rule-based alert consolidation and tiered customer targeting — built with dummy data to practice patterns used in production pharma commercial analytics pipelines (business-rules-based alerting, tiered target lists, SCD Type 2 change tracking), and now fully automated end-to-end with Airflow.
+An orchestrated, multi-engine data pipeline demonstrating rule-based alert consolidation and tiered customer targeting — built with dummy data to practice patterns used in production pharma commercial analytics pipelines (business-rules-based alerting, tiered target lists, SCD Type 2 change tracking), fully automated end-to-end with Airflow, and extended with a RAG layer and a feature store/MLOps layer as downstream consumers of the same data foundation.
 
-This is the capstone of a four-week hands-on build spanning the core modern data engineering stack: **dbt (transformation/testing) → Spark (distributed processing) → Databricks/Delta Lake (managed lakehouse) → Airflow (orchestration)**.
+This project spans the core modern data engineering and AI-adjacent stack: **dbt (transformation/testing) → Spark (distributed processing) → Databricks/Delta Lake (managed lakehouse) → Airflow (orchestration) → RAG (vector retrieval + generation) → Feast/MLflow (feature store + experiment tracking + drift detection)**.
 
 ## Architecture
-┌─────────────────────────┐
+                      ┌─────────────────────────┐
                       │   Airflow (Docker)       │
                       │   DAG: full_customer_    │
                       │   alerts_pipeline        │
                       │   Schedule: @daily       │
                       └───────────┬──────────────┘
                                   │
-             ┌────────────────────┼────────────────────┐
-             ▼                    ▼                     ▼
-  validate_raw_ingestion   run_spark_transform    run_dbt_run → run_dbt_test
-  (checks seeds exist)     (PySpark, containerized)  (dbt-duckdb, containerized)
-                                  │                     ▲
-                                  ▼                     │
-                          Parquet output ────────────────┘
-                          (external dbt source)
+  validate_raw_ingestion → run_dbt_seed_chain → run_spark_transform → run_dbt_run → run_dbt_test
+  (checks seeds exist)    (builds Chain A:      (PySpark,             (dbt-duckdb,
+                            fct_customer_targets)  containerized)       containerized)
+                                  │                    │
+                                  │                    ▼
+                                  │             Parquet output
+                                  │             (external dbt source)
+                                  │                    │
+                                  │                    ▼
+                                  │             fct_customer_targets_from_spark
+                                  ▼
+                          fct_customer_targets
+                                  │
+             ┌────────────────────┴────────────────────┐
+             ▼                                          ▼
+      RAG layer                                  Feature store / MLOps
+(Chroma, sentence-transformers,            (Feast offline/online split,
+ chunking, retrieval, generation)           MLflow experiment tracking,
+                                             drift detection)
 
   Separately, on Databricks (manual notebook trigger, documented as
   next-step for full DatabricksSubmitRunOperator integration):
@@ -34,73 +45,8 @@ This is the capstone of a four-week hands-on build spanning the core modern data
          │
          ▼
   dbt-databricks adapter → int_customer_alerts_databricks → fct_customer_targets_databricks
-  ## What this demonstrates, by layer
-
-## Architecture (RAG layer, sitting on top of the pipeline)
-fct_customer_targets (DuckDB)
-                dbt/Spark pipeline output
-                          │
-                          ▼
-             pull_pipeline_data.py
-             (queries dev.duckdb directly,
-              derives alert_note text field
-              from real alert_reason/spend/
-              pending/cancelled columns)
-                          │
-                          ▼
-             embed_alert_notes.py
-             (sentence-transformers →
-              384-dim embeddings)
-                          │
-                          ▼
-             Chroma (persistent, local)
-             collection: customer_alert_notes
-             (embedding + document + metadata:
-              customer_id, region, alert_reason,
-              target_tier)
-                          │
-                          ▼
-             retrieve_alert_notes.py
-             (semantic search + optional
-              metadata filter, e.g. region)
-                          │
-                          ▼
-             generate.py
-             (retrieved chunks → grounded
-              prompt → flan-t5-base → answer
-              + source attribution)
-
-## Architecture (Feature store + MLOps layer)
-
-                fct_customer_targets (DuckDB)
-                          │
-                          ▼
-             export_features.py
-             (Parquet export, timestamped)
-                          │
-                          ▼
-             Feast (feature_definitions.py)
-             Entity: customer | FeatureView: customer_stats
-                          │
-             ┌────────────┴────────────┐
-             ▼                         ▼
-    Offline store (Parquet)    feast materialize
-    get_historical_features()          │
-    — point-in-time correct,           ▼
-      training-oriented         Online store (SQLite)
-                                 get_online_features()
-                                 — fast single-entity lookup,
-                                   serving-oriented
-
-             Separately, on the same fct_customer_targets data:
-
-    MLflow (log_scoring_run.py)          drift_check.py
-    Rule-based scoring logic,     Compares feature distributions
-    parameterized (threshold)     across time windows (KS test +
-    tracked as runs: params,      mean-shift check) — flags when
-    metrics, artifacts            scoring thresholds may be stale
-
-This is the same integration pattern as the Spark→dbt and Databricks→dbt work earlier: a new layer consuming `fct_customer_targets` the same way a BI tool or another pipeline stage would, rather than operating on a disconnected dataset.
+  
+## What this demonstrates, by layer
 
 **dbt / DuckDB**
 - Layered modeling: seeds → staging (`stg_*`) → intermediate (`int_*`) → marts (`fct_*`)
@@ -118,11 +64,11 @@ This is the same integration pattern as the Spark→dbt and Databricks→dbt wor
 - `dbt-databricks` adapter connecting the local dbt project directly to live Delta tables
 
 **Airflow**
-- Full stack run via Docker Compose (webserver, scheduler, dag-processor, Postgres metadata DB, Redis) — the same pattern used in real production Airflow deployments, not a bare pip install
+- Full stack run via Docker Compose (webserver, scheduler, dag-processor, triggerer, Postgres metadata DB, Redis) — the same pattern used in real production Airflow deployments, not a bare pip install
 - Custom Docker image (Java + PySpark + dbt-duckdb baked in via Dockerfile) so DAG tasks can actually execute Spark and dbt inside containers
-- DAG chaining raw-ingestion validation → Spark transform → `dbt run` → `dbt test`, using `>>` dependency operators
+- DAG chaining raw-ingestion validation → seed-based dbt build → Spark transform → `dbt run` → `dbt test`, using `>>` dependency operators
 - Retries, `retry_delay`, and `on_failure_callback` alerting stubs (task-level and DAG-level) for failure handling
-- `@daily` schedule, with the full chain verified via manual trigger and Graph View inspection
+- `@daily` schedule, with the full 5-task chain verified via manual trigger and Graph View inspection
 
 **RAG / Vector Retrieval Layer**
 - Local, zero-server vector store (ChromaDB, persistent client) — same local-first philosophy as DuckDB
@@ -151,8 +97,20 @@ This is the same integration pattern as the Spark→dbt and Databricks→dbt wor
 - **Spark** demonstrates the distributed-processing pattern, even at small scale here — the same DataFrame/window-function/join logic that matters once data outgrows a single node.
 - **Databricks + Delta** shows the managed-lakehouse pattern: ACID transactions, schema enforcement, versioning, and native upsert (`MERGE INTO`) — replacing manual SCD2 logic built by hand in previous roles.
 - **Airflow** ties it together as the orchestration layer, adding scheduling, retries, and failure handling — the piece that turns a set of scripts into an actual production pipeline.
+- **RAG (Chroma + sentence-transformers)** shows how unstructured/semi-structured text derived from pipeline output can be made searchable by meaning, not just keyword — a different consumption pattern than SQL/BI on the same underlying data.
+- **Feast + MLflow** show the data-layer foundations ML systems are built on: consistent offline/online feature serving, and reproducible experiment tracking — applied here to real rule-based scoring logic, without requiring actual ML modeling expertise, since that's a separate, deliberately out-of-scope skill.
 
 **On idempotency** (a running theme across the incremental/MERGE/retry work): every write in this pipeline is designed to be safely rerunnable — dbt's `delete+insert` incremental strategy and Delta's `MERGE INTO` both match on a unique key rather than blindly inserting, so a retry (automatic, via Airflow, or manual) never duplicates data. This matters specifically because Airflow assumes failures are normal and retries by default — a pipeline built on raw inserts would corrupt itself under that assumption; this one doesn't.
+
+## Architecture review notes (Week 7)
+
+A few things surfaced when reviewing the full pipeline end-to-end, since it was built incrementally across many weeks. Documenting them here rather than hiding them:
+
+- **Three parallel chains exist by design, not by accident**: `fct_customer_targets` (seed-based), `fct_customer_targets_from_spark` (Spark-fed), and `fct_customer_targets_databricks` (Delta-fed) all compute the same business logic. This was intentional — each chain exists to compare engines (dbt-only vs. Spark-augmented vs. Databricks/Delta-augmented), not to be three separate "real" pipelines.
+- **The Airflow DAG orchestrates two of the three chains**: `full_customer_alerts_pipeline` builds both the seed-based chain (`run_dbt_seed_chain`) and the Spark-fed chain (`run_spark_transform` → `run_dbt_run` → `run_dbt_test`) in one run, in that order. The Databricks/Delta chain remains a manually-triggered notebook workflow — documented as a next step for full `DatabricksSubmitRunOperator` integration, not yet automated.
+- **RAG and Feature Store layers read `fct_customer_targets`** (the seed-based chain), which is why `run_dbt_seed_chain` was added to the DAG — this makes those downstream consumers genuinely built on data the orchestrated pipeline produces, rather than a disconnected manual table.
+- **`profiles.yml` uses an environment variable for the DuckDB path** (`DBT_DUCKDB_PATH`, defaulting to `dev.duckdb`), so the same profile works both for local `dbt run`/`dbt debug` and inside the Airflow containers (which set the variable to an absolute container path). This was fixed after discovering the container-specific path had silently broken local dbt runs.
+- **The `seeds/` folder is mounted twice** into the Airflow containers (once directly, once as part of the whole project root) — kept intentionally redundant so `sparksql_writeout.py`'s relative path (`../seeds/...`) keeps working without hardcoding container-specific absolute paths.
 
 ## Project structure
 seeds/ raw dummy data (customers, orders)
@@ -164,14 +122,14 @@ spark_pipeline/ PySpark scripts (staging, joins, window functions, Spark SQL + P
 spark_pipeline/output/ Parquet output consumed by dbt as an external source
 airflow_pipeline/ Docker Compose stack, custom Dockerfile, DAGs
 airflow_pipeline/dags/ full_customer_alerts_pipeline (production DAG), first_dag (learning DAG)
+rag_pipeline/ Chroma vector store, embedding/retrieval/generation scripts
+rag_pipeline/corpus/ dummy pharma knowledge base (drug info, therapy summaries)
+rag_pipeline/chroma_db/ persistent Chroma vector store (gitignored — regenerable)
+rag_pipeline/alert_notes.csv text field derived from fct_customer_targets
+feature_store/customer_features/ Feast feature repo (entity, feature view, offline/online retrieval)
+mlflow_experiments/ MLflow-tracked runs of parameterized rule-based scoring
+drift_check/ Feature distribution drift detection (KS test + mean-shift check)
 profiles.yml dbt profile (DuckDB dev/prod targets + Databricks target) — gitignored, contains credentials
-rag_pipeline/                       Chroma vector store, embedding/retrieval/generation scripts
-rag_pipeline/corpus/                  dummy pharma knowledge base (drug info, therapy summaries)
-rag_pipeline/chroma_db/               persistent Chroma vector store (gitignored — regenerable)
-rag_pipeline/alert_notes.csv          text field derived from fct_customer_targets
-feature_store/customer_features/    Feast feature repo (entity, feature view, offline/online retrieval)
-mlflow_experiments/                  MLflow-tracked runs of parameterized rule-based scoring
-drift_check/                         Feature distribution drift detection (KS test + mean-shift check)
 
 ## How to run
 
@@ -197,20 +155,16 @@ cd .. && dbt run --select int_customer_alerts_from_spark fct_customer_targets_fr
 pip install dbt-databricks
 dbt run --target databricks --select int_customer_alerts_databricks fct_customer_targets_databricks
 ```
+
 **RAG layer (after the dbt pipeline has run at least once):**
 ```bash
 cd rag_pipeline
 pip install chromadb sentence-transformers langchain-text-splitters transformers accelerate sentencepiece
 
-# Pull real pipeline output and derive alert notes
-python pull_pipeline_data.py
-
-# Embed and store
-python embed_alert_notes.py
-
-# Retrieve + generate grounded answers
-python retrieve_alert_notes.py
-python generate.py
+python pull_pipeline_data.py     # pull real pipeline output, derive alert notes
+python embed_alert_notes.py      # embed and store
+python retrieve_alert_notes.py   # retrieve
+python generate.py               # grounded generation
 ```
 
 **Feature store + MLOps layer:**
@@ -232,6 +186,10 @@ cd ../drift_check
 python simulate_drift.py
 python drift_check.py
 ```
+
+## Status
+
+All planned phases are complete: dbt/DuckDB foundation, Spark (local distributed processing), Databricks/Delta Lake (managed lakehouse), Airflow (orchestration), a RAG layer (vector retrieval + generation), and a feature store/MLOps layer (offline/online feature serving, experiment tracking, drift detection) — all consuming the same `fct_customer_targets` pipeline output, which the orchestrated Airflow DAG itself builds. This demonstrates the full span of a modern AI-adjacent data engineering stack: batch transformation, distributed processing, lakehouse storage, orchestration, and the data-layer foundations that ML/AI systems are built on top of — without requiring ML modeling expertise, since every layer here is about making data correctly available, versioned, and monitored, which is the data engineer's actual scope of ownership.
 
 ## Notes
 
