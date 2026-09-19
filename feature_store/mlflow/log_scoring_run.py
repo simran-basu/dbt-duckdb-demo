@@ -2,7 +2,7 @@ import duckdb
 import mlflow
 import pandas as pd
 
-con = duckdb.connect("../dev.duckdb")
+con = duckdb.connect("../../dbt/dev.duckdb")
 
 df = con.sql("""
     SELECT customer_id, customer_name, total_spend, pending_orders, cancelled_orders

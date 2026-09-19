@@ -2,7 +2,7 @@ import duckdb
 import pandas as pd
 import numpy as np
 
-con = duckdb.connect("../dev.duckdb")
+con = duckdb.connect("../../dbt/dev.duckdb")
 
 baseline_df = con.sql("SELECT * FROM fct_customer_targets").df()
 baseline_df["window"] = "baseline"

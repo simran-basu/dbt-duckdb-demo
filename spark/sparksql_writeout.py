@@ -1,5 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lower
+import os
 
 spark = SparkSession.builder \
     .appName("Week2SparkSQLWriteOut") \
@@ -7,8 +8,9 @@ spark = SparkSession.builder \
     .getOrCreate()
 
 # --- Read raw sources ---
-customers_raw = spark.read.csv("../seeds/customers.csv", header=True, inferSchema=True)
-orders_raw = spark.read.csv("../seeds/orders.csv", header=True, inferSchema=True)
+seeds_dir = os.environ.get("SEEDS_DIR", "../dbt/seeds")
+customers_raw = spark.read.csv(os.path.join(seeds_dir, "customers.csv"), header=True, inferSchema=True)
+orders_raw = spark.read.csv(os.path.join(seeds_dir, "orders.csv"), header=True, inferSchema=True)
 
 # --- Staging transformations (from Tuesday) ---
 stg_customers = customers_raw.select(

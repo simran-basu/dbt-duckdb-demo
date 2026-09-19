@@ -71,7 +71,7 @@ with DAG(
 
     run_spark_transform = BashOperator(
         task_id="run_spark_transform",
-        bash_command="cd /opt/airflow/spark_pipeline && python sparksql_writeout.py",
+        bash_command="cd /opt/airflow/spark && export SEEDS_DIR=/opt/airflow/seeds && python sparksql_writeout.py",
     )
 
     run_dbt_run = BashOperator(

@@ -1,7 +1,7 @@
 import duckdb
 
 # Connect to the same DuckDB file your dbt project writes to
-con = duckdb.connect("../dev.duckdb")
+con = duckdb.connect("../dbt/dev.duckdb")
 
 # Pull the actual mart output from your pipeline
 df = con.sql("""

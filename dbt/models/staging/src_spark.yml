@@ -5,4 +5,4 @@ sources:
     tables:
       - name: int_customer_alerts_parquet
         meta:
-          external_location: "spark_pipeline/output/int_customer_alerts_parquet/*.parquet"
+          external_location: "../spark/output/int_customer_alerts_parquet/*.parquet"

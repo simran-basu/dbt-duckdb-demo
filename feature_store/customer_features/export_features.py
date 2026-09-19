@@ -2,7 +2,7 @@ import duckdb
 import pandas as pd
 from datetime import datetime, timezone
 
-con = duckdb.connect("../../dev.duckdb")
+con = duckdb.connect("../../dbt/dev.duckdb")
 
 df = con.sql("""
     SELECT customer_id, customer_name, region, total_orders, total_spend,

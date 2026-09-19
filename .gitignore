@@ -9,6 +9,7 @@ dbt/target/
 dbt/dbt_packages/
 dbt/logs/
 dbt/profiles.yml
+dbt/.user.yml
 
 # Feast — regenerable registry, online store, and Parquet exports
 feature_store/**/data/registry.db
@@ -25,6 +26,7 @@ feature_store/drift_check/windowed_data.csv
 
 # RAG — Chroma vector store
 rag/chroma_db/
+rag/alert_notes.csv
 
 # Spark — regenerable Parquet output
 spark/output/
