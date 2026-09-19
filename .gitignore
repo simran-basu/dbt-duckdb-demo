@@ -1,8 +1,37 @@
-target/
-dbt_packages/
+# Byte-compiled
+__pycache__/
+*.pyc
+
+# dbt / DuckDB
+dbt/dev.duckdb
+dbt/*.duckdb.wal
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/profiles.yml
+
+# Feast — regenerable registry, online store, and Parquet exports
+feature_store/**/data/registry.db
+feature_store/**/data/online_store.db
+feature_store/**/data/*.parquet
+
+# MLflow — regenerable tracking database and run artifacts
+feature_store/mlflow/mlflow.db
+feature_store/mlflow/mlruns/
+feature_store/mlflow/scored_customers_*.csv
+
+# Drift check — regenerable simulated/derived data
+feature_store/drift_check/windowed_data.csv
+
+# RAG — Chroma vector store
+rag/chroma_db/
+
+# Spark — regenerable Parquet output
+spark/output/
+
+# Airflow runtime logs
+dags/logs/
+
+# Stray dbt log file
 logs/
-*.duckdb
-*.duckdb.wal
-dbt-env/
-profiles.yml
-rag_pipeline/chroma_db/
+dbt.log
